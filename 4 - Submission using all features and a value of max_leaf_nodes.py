@@ -47,7 +47,7 @@ def convert_to_numbers(column_name, DataFrame):
     DataFrame.loc[:, column_name] = DataFrame.loc[:, column_name].fillna("Unknown")
     column_value_counts = DataFrame.loc[:, column_name].value_counts()
     #print(column_value_counts)
-    # Warning. We have to convert column_value_counts_index into list to find de place of each string value in its index:
+    # Warning. We have to convert column_value_counts_index into list to find the place of each string value in its index:
     column_value_counts_index = column_value_counts.index.tolist()
     column_dict = {string_value: column_value_counts_index.index(string_value) for string_value in column_value_counts_index}
     print(column_dict)
