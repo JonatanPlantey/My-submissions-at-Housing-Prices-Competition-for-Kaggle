@@ -16,7 +16,8 @@ def weighted_average_for_string_column(Series):
     Series_value_counts = Series_value_counts.reset_index(drop = True)
     sum_prod = 0
     for i in range(len(Series_value_counts)):
-        sum_prod += Series_value_counts.iloc[i] * i
+        #sum_prod += Series_value_counts.iloc[i] * i
+        sum_prod += Series_value_counts.iloc[i] * (i + 1)
     weighted_average = sum_prod / sum(Series_value_counts)
     return weighted_average
 
@@ -49,18 +50,19 @@ pd.options.mode.chained_assignment = None
 number_features_selected = [column_name for column_name in features_selected if (X.loc[:, column_name].dtype == 'int64' or X.loc[:, column_name].dtype == 'float64')]
 print(number_features_selected)
 # Fill columns
-for column_name in number_features_selected:
-    # Copy the column without NaN entries before changes to calculate the weighted average later
-    column_without_NaN_entries = X.loc[:, column_name].dropna()
-    X.loc[:, column_name] = X.loc[:, column_name].fillna(average_for_number_column(column_without_NaN_entries) * 0)
-    print(average_for_number_column(column_without_NaN_entries))
-
+# Function to fill 'NaN' entries by average of the other values in numbers columns
+def fill_NaN_by_average_in_all_numbers_columns(X, number_features_selected):
+    for column_name in number_features_selected:
+        # Copy the column without NaN entries before changes to calculate the weighted average later
+        column_without_NaN_entries = X.loc[:, column_name].dropna()
+        X.loc[:, column_name] = X.loc[:, column_name].fillna(average_for_number_column(column_without_NaN_entries) * 1)
+fill_NaN_by_average_in_all_numbers_columns(X, number_features_selected)
 ### Replace string by numbers in columns who contain object values
 # Select object columns
 string_features_selected = [column_name for column_name in features_selected if X.loc[:, column_name].dtype == object]
 print(string_features_selected)
 # Function to convert columns in a DataFrame who contain string values using directories and save these
-# For each use, this one save dictionary used into the list below in order to reuse the same in final model
+# For each use, this one save dictionary used into the list below in order to reuse further
 list_of_dict_used = []
 def convert_to_numbers_and_save_dict_used(column_name, DataFrame, list_of_dict):
     # Copy the column without NaN entries before changes to calculate the weighted average later
@@ -76,7 +78,7 @@ def convert_to_numbers_and_save_dict_used(column_name, DataFrame, list_of_dict):
     # We give to the "Unknown" key the value of weighted average of values in the new dictionary
     print(column_dict)
     # Calculate the weighted average
-    column_dict["Unknown"] = weighted_average_for_string_column(column_without_NaN_entries) * 2.3
+    column_dict["Unknown"] = weighted_average_for_string_column(column_without_NaN_entries) * 1
     print(column_dict)
     DataFrame.loc[:, column_name] = DataFrame.loc[:, column_name].map(lambda p: column_dict[p])
     list_of_dict = list_of_dict.append(column_dict)
@@ -95,6 +97,19 @@ model_default_val_preds = model_default.predict(val_X)
 default_val_mae = mean_absolute_error(model_default_val_preds, val_y)
 print("\nValidation MAE for Model with no value of max_leaf_node: {:,.0f}\n".format(default_val_mae))
 
+# Functions used
+# Function to convert a string columns with a new 'list_of_dict_used'
+def convert_string_column_into_numbers_using_dict_in_list_of_dict_used(column_name, DataFrame, dict):
+    # Fill "NaN" entries with "Unknown"
+    DataFrame.loc[:, column_name] = DataFrame.loc[:, column_name].fillna("Unknown")
+    DataFrame.loc[:, column_name] = DataFrame.loc[:, column_name].map(lambda p: dict[p])
+# Function to convert all string columns with a new 'list_of_dict_used'
+def convert_string_columns_into_numbers_using_list_of_dict_used(X, list_of_dict_used):
+    i = 0
+    for column_name in string_features_selected:
+        convert_string_column_into_numbers_using_dict_in_list_of_dict_used(column_name, X, list_of_dict_used[i])
+        i += 1
+
 # Fit Model Using All Data
 final_model = RandomForestRegressor(random_state=1)
 final_model.fit(X, y)
@@ -104,26 +119,12 @@ test_path = './input/test.csv'
 test_data = pd.read_csv(test_path)
 test_X = test_data[features_selected]
 # Fill and convert columns selected as before
-for column_name in number_features_selected:
-    # Copy the column without NaN entries before changes to calculate the weighted average later
-    column_without_NaN_entries = test_X.loc[:, column_name].dropna()
-    test_X.loc[:, column_name] = test_X.loc[:, column_name].fillna(average_for_number_column(column_without_NaN_entries) * 0)
-    print(average_for_number_column(column_without_NaN_entries))
-# Function to convert columns in a DataFrame who contain string values using directories saved before
-# For each use, this one remove dictionnary used into the list until the end
-def convert_to_numbers_and_remove_dict_used(column_name, DataFrame, list_of_dict):
-    # Fill "nan" entries with "Unknown"
-    DataFrame.loc[:, column_name] = DataFrame.loc[:, column_name].fillna("Unknown")
-    column_dict = list_of_dict[0]
-    print(column_dict)
-    DataFrame.loc[:, column_name] = DataFrame.loc[:, column_name].map(lambda p: column_dict[p])
-    list_of_dict = list_of_dict.pop(0)
-
-for column_name in string_features_selected:
-    convert_to_numbers_and_remove_dict_used(column_name, test_X, list_of_dict_used)
+fill_NaN_by_average_in_all_numbers_columns(test_X, number_features_selected)
+convert_string_columns_into_numbers_using_list_of_dict_used(test_X, list_of_dict_used)
+print(test_X.head())
 # make predictions which we will submit.
 test_preds = final_model.predict(test_X)
 
 # Generate a submission
 output = pd.DataFrame({'Id': test_data.Id, 'SalePrice': test_preds})
-output.to_csv('submission7.csv', index=False)
+output.to_csv('submission9.csv', index=False)
