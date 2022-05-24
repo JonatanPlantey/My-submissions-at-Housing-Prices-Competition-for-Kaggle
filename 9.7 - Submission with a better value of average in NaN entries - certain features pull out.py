@@ -168,6 +168,7 @@ print('features_selected', len(features_selected), '/', len_all_features)
 print("final validation MAE for Model with no value of max_leaf_node: {:,.0f}\n".format(final_val_mae))
 
 # Fit Model Using All Data
+# Restart with a new copy of X
 X = train_data[features_selected]
 # Fill and convert columns selected as before
 fill_NaN_by_average_in_all_numbers_columns(X, number_features_selected)
